@@ -5,8 +5,9 @@ root = pathlib.Path(__file__).parent
 tpl = (root / "src" / "template.html").read_text(encoding="utf-8")
 
 def img(m):
-    data = (root / "assets" / f"{m.group(1)}.jpg").read_bytes()
-    return "data:image/jpeg;base64," + base64.b64encode(data).decode()
+    path = next((root / "assets").glob(m.group(1) + ".*"))
+    mime = "image/png" if path.suffix == ".png" else "image/jpeg"
+    return f"data:{mime};base64," + base64.b64encode(path.read_bytes()).decode()
 
 body = re.sub(r"\{\{IMG:(\w+)\}\}", img, tpl)
 (root / "dist").mkdir(exist_ok=True)
