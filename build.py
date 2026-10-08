@@ -2,7 +2,7 @@
 import base64, pathlib, re
 
 root = pathlib.Path(__file__).parent
-tpl = (root / "src" / "template.html").read_text(encoding="utf-8")
+tpl = "".join((root / "src" / f).read_text(encoding="utf-8") for f in ("head.html", "app.html", "models.js", "engine.js"))
 
 def img(m):
     path = next((root / "assets").glob(m.group(1) + ".*"))

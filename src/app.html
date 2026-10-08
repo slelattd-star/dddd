@@ -1,0 +1,199 @@
+
+<div class="shell">
+  <header class="top">
+    <div class="brand">
+      <img class="maker" src="{{IMG:logo}}" alt="Global Building Supply Chain"><span class="sep" aria-hidden="true"></span>
+      <h1 id="m-title"></h1>
+      <p id="m-sub"></p>
+    </div>
+    <div class="variant" role="group" aria-label="Variantes" id="variants"></div>
+  </header>
+
+  <nav class="models" id="models" aria-label="Modelos"></nav>
+
+  <main class="app">
+    <section class="stage" id="stage" aria-label="Modelo 3D navegable">
+      <canvas id="c"></canvas>
+      <div class="labels" id="labels"></div>
+      <nav class="modes" aria-label="Vista">
+        <button data-mode="exterior" aria-pressed="true">Exterior</button>
+        <button data-mode="interior" aria-pressed="false">Interior</button>
+        <button data-mode="planta" aria-pressed="false">Planta</button>
+        <button data-mode="recorrido" aria-pressed="false">Recorrido</button>
+      </nav>
+      <div class="hint" id="hint"></div>
+      <div class="toggles" id="toggles">
+        <label><input type="checkbox" id="t-dims" checked> Cotas</label>
+        <label><input type="checkbox" id="t-roof" checked> <span id="t-roof-l">Techo</span></label>
+        <label><input type="checkbox" id="t-person" checked> Persona 1,75 m</label>
+        <label><input type="checkbox" id="t-spots" checked> Ambientes</label>
+      </div>
+      <div class="pad" id="pad" hidden>
+        <button class="up" data-k="f" aria-label="Avanzar">▲</button>
+        <button class="lt" data-k="tl" aria-label="Girar a la izquierda">↺</button>
+        <button class="dn" data-k="b" aria-label="Retroceder">▼</button>
+        <button class="rt" data-k="tr" aria-label="Girar a la derecha">↻</button>
+      </div>
+      <div class="card" id="card" hidden>
+        <button class="x" id="card-x" aria-label="Cerrar">×</button>
+        <h3 id="card-t"></h3>
+        <p id="card-d"></p>
+        <div class="row">
+          <button class="btn pri" id="card-walk">Caminar acá</button>
+          <button class="btn" id="card-out">Ver de afuera</button>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <div class="tabs" role="tablist">
+        <button role="tab" aria-selected="true" data-tab="ficha">Ficha</button>
+        <button role="tab" aria-selected="false" data-tab="espacios">Espacios</button>
+        <button role="tab" aria-selected="false" data-tab="plano">Plano</button>
+        <button role="tab" aria-selected="false" data-tab="fotos">Fotos</button>
+      </div>
+      <div class="pane" data-pane="ficha" id="p-ficha"></div>
+      <div class="pane" data-pane="espacios" hidden>
+        <div class="rooms" id="rooms"></div>
+        <p class="note">Tocá un espacio para ir hasta él en el modelo. En modo Recorrido te ubica parado ahí, a la altura de los ojos (1,60 m).</p>
+      </div>
+      <div class="pane" data-pane="plano" id="p-plano" hidden></div>
+      <div class="pane" data-pane="fotos" hidden><div class="gallery" id="p-fotos"></div></div>
+    </aside>
+  </main>
+</div>
+<div class="lightbox" id="lightbox" hidden><img id="lightbox-img" alt=""></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+/* ================= Render base ================= */
+const stage=$('#stage'), canvas=$('#c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.05;
+const scene=new THREE.Scene();
+scene.fog=new THREE.Fog(0xe3e7ea,30,70);
+const camera=new THREE.PerspectiveCamera(45,1,0.05,400);
+
+/* ================= Texturas procedurales ================= */
+function tex(w,h,draw,rep){
+  const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);
+  const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  if(rep)t.repeat.set(rep[0],rep[1]);t.encoding=THREE.sRGBEncoding;t.anisotropy=renderer.capabilities.getMaxAnisotropy();return t;
+}
+let seed=7; const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const woodTex=tex(256,256,(g,w,h)=>{g.fillStyle='#A9784C';g.fillRect(0,0,w,h);
+  for(let i=0;i<120;i++){const x=rnd()*w;g.strokeStyle=`rgba(${rnd()<.5?'70,40,20':'210,170,120'},${.08+rnd()*.12})`;g.lineWidth=1+rnd()*3;g.beginPath();g.moveTo(x,0);g.bezierCurveTo(x+rnd()*8-4,h*.3,x+rnd()*8-4,h*.7,x+rnd()*6-3,h);g.stroke();}},[1.2,1]);
+const floorTex=tex(256,256,(g,w,h)=>{g.fillStyle='#CFC6B8';g.fillRect(0,0,w,h);
+  for(let r=0;r<4;r++){const y=r*h/4;g.fillStyle=`rgba(120,100,80,${.04+rnd()*.06})`;g.fillRect(0,y,w,h/4);g.fillStyle='rgba(90,75,60,.35)';g.fillRect(0,y,w,1.5);g.fillRect((r%2)*w/2+w/4,y,1.5,h/4);}},[0.8,0.8]);
+const deckTex=tex(256,256,(g,w,h)=>{g.fillStyle='#8C8F8E';g.fillRect(0,0,w,h);
+  for(let i=0;i<8;i++){const x=i*w/8;g.fillStyle=`rgba(255,255,255,${rnd()*.08})`;g.fillRect(x,0,w/8,h);g.fillStyle='rgba(40,40,40,.55)';g.fillRect(x,0,2,h);
+  for(let k=0;k<10;k++){g.fillStyle='rgba(60,60,60,.15)';g.fillRect(x+4+rnd()*20,0,1,h);}}},[1.4,1.4]);
+const roofTex=tex(128,64,(g,w,h)=>{const gr=g.createLinearGradient(0,0,w,0);
+  gr.addColorStop(0,'#7E858B');gr.addColorStop(.25,'#C9CED2');gr.addColorStop(.5,'#9AA1A6');gr.addColorStop(.75,'#5E656B');gr.addColorStop(1,'#7E858B');g.fillStyle=gr;g.fillRect(0,0,w,h);},[5,1]);
+// chapa trapezoidal para paredes (nervios verticales cada ~20 cm)
+const ribTex=tex(128,32,(g,w,h)=>{g.fillStyle='#FFFFFF';g.fillRect(0,0,w,h);
+  g.fillStyle='rgba(0,0,0,.16)';g.fillRect(0,0,w*.14,h);g.fillStyle='rgba(255,255,255,.5)';g.fillRect(w*.14,0,w*.05,h);g.fillStyle='rgba(0,0,0,.07)';g.fillRect(w*.6,0,w*.04,h);},[5,1]);
+// panel sándwich liso con juntas verticales cada ~1,15 m
+const panelTex=tex(128,32,(g,w,h)=>{g.fillStyle='#FFFFFF';g.fillRect(0,0,w,h);g.fillStyle='rgba(0,0,0,.18)';g.fillRect(0,0,2,h);
+  g.fillStyle='rgba(0,0,0,.035)';for(let i=1;i<8;i++)g.fillRect(i*w/8,0,1,h);},[0.87,1]);
+const grassTex=tex(256,256,(g,w,h)=>{g.fillStyle='#4E8A35';g.fillRect(0,0,w,h);
+  for(let i=0;i<5000;i++){g.fillStyle=`rgba(${rnd()<.5?'120,180,70':'40,90,30'},.5)`;g.fillRect(rnd()*w,rnd()*h,1,2+rnd()*3);}},[6,4]);
+const concreteTex=tex(256,256,(g,w,h)=>{g.fillStyle='#BDBDB8';g.fillRect(0,0,w,h);
+  for(let i=0;i<4000;i++){g.fillStyle=`rgba(${rnd()<.5?'255,255,255':'60,60,60'},${rnd()*.08})`;g.fillRect(rnd()*w,rnd()*h,2,2);}
+  g.fillStyle='rgba(0,0,0,.12)';g.fillRect(0,0,w,1.5);g.fillRect(0,0,1.5,h);},[.25,.25]);
+
+/* ================= Materiales compartidos ================= */
+const M={
+  panel:new THREE.MeshStandardMaterial({color:0xE9EBEC,roughness:.5,metalness:.05}),
+  wood:new THREE.MeshStandardMaterial({map:woodTex,roughness:.65}),
+  woodLight:new THREE.MeshStandardMaterial({map:woodTex,color:0xF2E6D8,roughness:.6}),
+  floor:new THREE.MeshStandardMaterial({map:floorTex,roughness:.55}),
+  deck:new THREE.MeshStandardMaterial({map:deckTex,roughness:.8}),
+  roof:new THREE.MeshStandardMaterial({map:roofTex,roughness:.4,metalness:.55}),
+  soffit:new THREE.MeshStandardMaterial({color:0xF4F4F2,roughness:.8,side:THREE.DoubleSide}),
+  base:new THREE.MeshStandardMaterial({color:0x6B7177,roughness:.7}),
+  glass:new THREE.MeshStandardMaterial({color:0xA9CFD2,roughness:.05,metalness:.2,transparent:true,opacity:.22,depthWrite:false,side:THREE.DoubleSide}),
+  frame:new THREE.MeshStandardMaterial({color:0x24282C,roughness:.45,metalness:.5}),
+  led:new THREE.MeshBasicMaterial({color:0xFFC48A}),
+  white:new THREE.MeshStandardMaterial({color:0xF6F6F4,roughness:.7}),
+  wallIn:new THREE.MeshStandardMaterial({color:0xF1F1EE,roughness:.85}),
+  ceramic:new THREE.MeshStandardMaterial({color:0xFAFAF8,roughness:.15}),
+  sage:new THREE.MeshStandardMaterial({color:0xB8BCA4,roughness:.85}),
+  fabric:new THREE.MeshStandardMaterial({color:0xC9C2B6,roughness:.95}),
+  dark:new THREE.MeshStandardMaterial({color:0x2E3236,roughness:.6}),
+  mirror:new THREE.MeshStandardMaterial({color:0xDDE6EA,roughness:.03,metalness:1}),
+  rattan:new THREE.MeshStandardMaterial({color:0x3B3833,roughness:.9}),
+  steel:new THREE.MeshStandardMaterial({color:0xF0F0EE,roughness:.35,metalness:.3}),
+  galv:new THREE.MeshStandardMaterial({color:0xB7BEC4,roughness:.35,metalness:.65}),
+  person:new THREE.MeshStandardMaterial({color:0x8E99A2,roughness:.8}),
+  grass:new THREE.MeshStandardMaterial({map:grassTex,roughness:1}),
+  concrete:new THREE.MeshStandardMaterial({map:concreteTex,roughness:.95}),
+  ground:new THREE.MeshStandardMaterial({color:0xCDD3D7,roughness:1})
+};
+Object.values(M).forEach(m=>m.color&&m.color.convertSRGBToLinear());
+const setCol=(m,hex)=>{m.color.setHex(hex).convertSRGBToLinear();};
+
+/* ================= Kit de construcción por modelo =================
+   Coordenadas de planta: x = largo (0..L), y = ancho (0..W, 0 = contrafrente).
+   Mundo: X = x - L/2, Z = y - W/2, Y = altura. */
+const oct=(x0,x1,y0,y1,c)=>[[x0+c,y0],[x1-c,y0],[x1,y0+c],[x1,y1-c],[x1-c,y1],[x0+c,y1],[x0,y1-c],[x0,y0+c]];
+const R=(u0,u1,v0,v1)=>[[u0,v0],[u1,v0],[u1,v1],[u0,v1]];
+const rect=(len,h)=>R(0,len,0,h);
+function shapeOf(pts){const s=new THREE.Shape();pts.forEach(([u,v],i)=>i?s.lineTo(u,v):s.moveTo(u,v));return s;}
+function pathOf(pts){const p=new THREE.Path();pts.forEach(([u,v],i)=>i?p.lineTo(u,v):p.moveTo(u,v));return p;}
+
+function makeKit(o){
+  const L=o.L,W=o.W,FLOOR=o.FLOOR||0;
+  const root=new THREE.Group();
+  const wx=x=>x-L/2, wz=y=>y-W/2;
+  const k={L,W,H:o.H,FLOOR,root,wx,wz,segs:[],spots:[],dims:[],toggles:[],roof:[],floors:[],variants:[],disposables:[],person:[L/2,W+1],pad:'grass'};
+  const shadowy=m=>{m.castShadow=m.receiveShadow=true;return m;};
+  k.mat=(params,Type)=>{const m=new (Type||THREE.MeshStandardMaterial)(params);if(m.color&&!params.map)m.color.convertSRGBToLinear();k.disposables.push(m);return m;};
+  k.box=(w,h,d,mat,x,y,z,parent)=>{const m=shadowy(new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat));m.position.set(x,y,z);(parent||root).add(m);return m;};
+  k.pbox=(x0,x1,y0,y1,h0,h1,mat,parent,base)=>{const b=base===undefined?FLOOR:base;return k.box(x1-x0,h1-h0,y1-y0,mat,wx((x0+x1)/2),b+(h0+h1)/2,wz((y0+y1)/2),parent);};
+  k.cyl=(r0,r1,h,mat,px,py,h0,parent,seg,base)=>{const b=base===undefined?FLOOR:base;const m=shadowy(new THREE.Mesh(new THREE.CylinderGeometry(r0,r1,h,seg||28),mat));m.position.set(wx(px),b+h0+h/2,wz(py));(parent||root).add(m);return m;};
+  k.planShape=pts=>shapeOf(pts.map(([x,y])=>[wx(x),-wz(y)]));
+  k.slab=(pts,y,depth,mats,parent)=>{const g=new THREE.ExtrudeGeometry(k.planShape(pts),{depth,bevelEnabled:false});g.rotateX(-Math.PI/2);
+    const m=shadowy(new THREE.Mesh(g,mats));m.position.y=y;(parent||root).add(m);return m;};
+  k.flat=(pts,y,mat,parent)=>{const g=new THREE.ShapeGeometry(k.planShape(pts));g.rotateX(-Math.PI/2);const m=new THREE.Mesh(g,mat);m.receiveShadow=true;m.position.y=y;(parent||root).add(m);return m;};
+  // Muro: recorre A→B en planta; la cara exterior queda sobre la línea A-B y el espesor crece hacia el lado izquierdo del recorrido.
+  k.wall=(A,B,outline,holes,opt)=>{opt=opt||{};const T=opt.T||.075,base=opt.base===undefined?FLOOR:opt.base;
+    const dx=B[0]-A[0],dz=B[1]-A[1],len=Math.hypot(dx,dz);
+    const s=shapeOf(outline);(holes||[]).forEach(h=>s.holes.push(pathOf(h)));
+    const g=new THREE.ExtrudeGeometry(s,{depth:T/2,bevelEnabled:false});
+    const grp=new THREE.Group();grp.position.set(wx(A[0]),base,wz(A[1]));grp.rotation.y=Math.atan2(-dz/len,dx/len);
+    const out=shadowy(new THREE.Mesh(g,opt.outer||M.panel)),inn=shadowy(new THREE.Mesh(g,opt.inner||M.wallIn));inn.position.z=T/2;
+    grp.add(out,inn);(opt.parent||root).add(grp);grp.userData.T=T;return grp;};
+  // Ventana rectangular dentro de un muro (coordenadas u,v del muro)
+  k.win=(grp,u0,u1,v0,v1,frameMat,mullion)=>{const T=grp.userData.T||.075,f=.05;
+    const fs=shapeOf(R(u0-f,u1+f,v0-f,v1+f));fs.holes.push(pathOf(R(u0,u1,v0,v1)));
+    const fr=shadowy(new THREE.Mesh(new THREE.ExtrudeGeometry(fs,{depth:T+.02,bevelEnabled:false}),frameMat||M.frame));fr.position.z=-.01;grp.add(fr);
+    const gl=new THREE.Mesh(new THREE.ShapeGeometry(shapeOf(R(u0,u1,v0,v1))),M.glass);gl.position.z=T/2;gl.renderOrder=2;grp.add(gl);
+    if(mullion){const mu=shadowy(new THREE.Mesh(new THREE.BoxGeometry(.04,v1-v0,T*.6),frameMat||M.frame));mu.position.set((u0+u1)/2,(v0+v1)/2,T/2);grp.add(mu);}};
+  k.glassSeg=(A,B,h0,h1,parent,base)=>{const b=base===undefined?FLOOR:base;const dx=B[0]-A[0],dz=B[1]-A[1],len=Math.hypot(dx,dz);
+    const m=new THREE.Mesh(new THREE.BoxGeometry(len,h1-h0,.02),M.glass);m.renderOrder=2;
+    m.position.set(wx((A[0]+B[0])/2),b+(h0+h1)/2,wz((A[1]+B[1])/2));m.rotation.y=Math.atan2(-dz/len,dx/len);(parent||root).add(m);return m;};
+  // barra entre dos puntos del mundo
+  k.rod=(p,q,r,mat,parent)=>{const a=new THREE.Vector3(...p),b=new THREE.Vector3(...q),len=a.distanceTo(b);
+    const m=shadowy(new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,8),mat));m.position.copy(a).add(b).multiplyScalar(.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),b.clone().sub(a).normalize());(parent||root).add(m);return m;};
+  k.light=(x,y,h,int,dist,parent)=>{const p=new THREE.PointLight(0xffd7ad,int||.55,dist||5.5,2);p.position.set(wx(x),FLOOR+h,wz(y));(parent||root).add(p);return p;};
+  k.disc=(x,y,h,r,parent)=>{const d=new THREE.Mesh(new THREE.CircleGeometry(r||.07,20),M.led);d.rotation.x=Math.PI/2;d.position.set(wx(x),FLOOR+h,wz(y));(parent||root).add(d);return d;};
+  // colisiones del recorrido (segmentos en planta); g = grupo del que dependen
+  k.seg=(ax,ay,bx,by,g)=>k.segs.push([ax,ay,bx,by,g]);
+  k.rectSeg=(x0,x1,y0,y1,g)=>{k.seg(x0,y0,x1,y0,g);k.seg(x1,y0,x1,y1,g);k.seg(x1,y1,x0,y1,g);k.seg(x0,y1,x0,y0,g);};
+  // cotas
+  const gy=.03;
+  k.dimX=(x0,x1,y,text,soft,h)=>k.dims.push({a:[wx(x0),h||gy,wz(y)],b:[wx(x1),h||gy,wz(y)],t:[0,0,.12],text,soft});
+  k.dimY=(y0,y1,x,text,soft,h)=>k.dims.push({a:[wx(x),h||gy,wz(y0)],b:[wx(x),h||gy,wz(y1)],t:[.12,0,0],text,soft});
+  k.dimV=(x,y,h0,h1,text,soft,t)=>k.dims.push({a:[wx(x),h0,wz(y)],b:[wx(x),h1,wz(y)],t:t||[.12,0,0],text,soft});
+  k.floorAt=(x,y)=>x>0&&x<L&&y>0&&y<W?FLOOR:0;
+  return k;
+}
