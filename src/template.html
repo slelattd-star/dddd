@@ -1,4 +1,4 @@
-<title>VH30 Cápsula Modular</title>
+<title>VH30 · Global Building</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Figtree:wght@400;500;600&display=swap">
@@ -33,6 +33,13 @@ button{font:inherit;color:inherit}
 .brand h1{font-family:var(--f-display);font-weight:700;font-size:34px;line-height:1;margin:0;letter-spacing:.01em}
 .brand h1 span{color:var(--accent)}
 .brand p{margin:0;color:var(--muted);font-size:14px}
+.maker{font-family:var(--f-display);font-weight:600;font-size:13px;letter-spacing:.22em;padding-right:14px;border-right:1px solid var(--line);align-self:center;display:flex;gap:.45em}
+.maker b{font-weight:700;color:var(--accent)}
+.plan-wrap{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}
+.plan-wrap img{display:block;width:100%;cursor:zoom-in}
+.plan-keys{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:6px;font-size:13.5px}
+.plan-keys li{display:grid;grid-template-columns:96px 1fr;gap:10px}
+.plan-keys b{font-family:var(--f-display);font-weight:600;font-variant-numeric:tabular-nums}
 .variant{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
 .swatch{width:26px;height:26px;border-radius:50%;border:2px solid var(--surface);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
 .swatch[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
@@ -102,7 +109,7 @@ ul.mats b{font-family:var(--f-display);color:var(--accent);font-weight:600}
 .gallery figure.wide img{aspect-ratio:16/10}
 .gallery figcaption{font-size:12px;color:var(--muted);padding-top:3px}
 .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;padding:24px;z-index:20;cursor:zoom-out}
-.lightbox img{max-height:100%;border-radius:8px}
+.lightbox img{max-height:100%;max-width:100%;border-radius:8px;background:#fff}
 
 @media (max-width: 860px){
   html,body{height:auto}
@@ -120,6 +127,7 @@ ul.mats b{font-family:var(--f-display);color:var(--accent);font-weight:600}
 <div class="shell">
   <header class="top">
     <div class="brand">
+      <div class="maker" id="maker" aria-label="Global Building">GLOBAL<b>BUILDING</b></div>
       <h1>VH<span>30</span></h1>
       <p>Cápsula de lujo modular · 8,5 × 3,4 m · dormitorio, baño y balcón</p>
     </div>
@@ -168,6 +176,7 @@ ul.mats b{font-family:var(--f-display);color:var(--accent);font-weight:600}
       <div class="tabs" role="tablist">
         <button role="tab" aria-selected="true" data-tab="ficha" id="tab-ficha">Ficha</button>
         <button role="tab" aria-selected="false" data-tab="espacios" id="tab-espacios">Espacios</button>
+        <button role="tab" aria-selected="false" data-tab="plano" id="tab-plano">Plano</button>
         <button role="tab" aria-selected="false" data-tab="fotos" id="tab-fotos">Fotos</button>
       </div>
 
@@ -182,7 +191,6 @@ ul.mats b{font-family:var(--f-display);color:var(--accent);font-weight:600}
           <dt>Modelo</dt><dd>VH30</dd>
           <dt>Superficie (fabricante)</dt><dd>≈ 21 m²</dd>
           <dt>Huella total con balcón</dt><dd>≈ 28,4 m²</dd>
-          <dt>Precio FOB estándar</dt><dd>US$ 20.460 / unidad</dd>
           <dt>Carga por contenedor</dt><dd>3 unidades / 40HQ</dd>
           <dt>Producción mensual</dt><dd>10 unidades</dd>
           <dt>Montaje</dt><dd>4–5 operarios, 1 semana</dd>
@@ -207,6 +215,17 @@ ul.mats b{font-family:var(--f-display);color:var(--accent);font-weight:600}
       <div class="pane" data-pane="espacios" hidden>
         <div class="rooms" id="rooms"></div>
         <p class="note">Tocá un espacio para ir hasta él en el modelo. En modo Recorrido te ubica parado adentro, a la altura de los ojos (1,60 m).</p>
+      </div>
+
+      <div class="pane" data-pane="plano" hidden>
+        <div class="plan-wrap"><img class="zoom" src="{{IMG:plano}}" alt="Plano VH30: planta, vistas frontal, posterior y laterales con medidas en milímetros"></div>
+        <ul class="plan-keys">
+          <li><b>8.500 mm</b><span>Largo total, incluido el balcón</span></li>
+          <li><b>3.400 mm</b><span>Ancho total</span></li>
+          <li><b>2.866 mm</b><span>Alto total, desde el suelo hasta el techo</span></li>
+          <li><b>895 mm</b><span>Alto de la baranda de vidrio del balcón</span></li>
+        </ul>
+        <p class="note">Tocá el plano para verlo en grande. Medidas en milímetros.</p>
       </div>
 
       <div class="pane" data-pane="fotos" hidden>
@@ -626,7 +645,7 @@ function setVariant(k){M.trim.color.setHex(VARIANTS[k].trim).convertSRGBToLinear
 $('#sw-orange').addEventListener('click',()=>setVariant('orange'));$('#sw-graphite').addEventListener('click',()=>setVariant('graphite'));
 $$('.tabs button').forEach(b=>b.addEventListener('click',()=>{$$('.tabs button').forEach(x=>x.setAttribute('aria-selected',String(x===b)));
   $$('.pane').forEach(p=>p.hidden=p.dataset.pane!==b.dataset.tab);}));
-$$('.gallery img').forEach(img=>img.addEventListener('click',()=>{$('#lightbox-img').src=img.src;$('#lightbox-img').alt=img.alt;$('#lightbox').hidden=false;}));
+$$('.gallery img, img.zoom').forEach(img=>img.addEventListener('click',()=>{$('#lightbox-img').src=img.src;$('#lightbox-img').alt=img.alt;$('#lightbox').hidden=false;}));
 $('#lightbox').addEventListener('click',()=>{$('#lightbox').hidden=true;});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#lightbox').hidden=true;closeCard();}});
 if(document.fonts)document.fonts.ready.then(()=>drawBadge($('#sw-graphite').getAttribute('aria-pressed')==='true'?VARIANTS.graphite.badge:VARIANTS.orange.badge));
